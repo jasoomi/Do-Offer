@@ -133,7 +133,7 @@ Your Points: <span id="points-symbol">$</span><span id="points">0</span>
 </div>
 
 <script>
-// Firebase configuration
+// New Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCAUY4Hey3H6o2lul37a13q7sxjMTQVa6I",
   authDomain: "doffer-1e164.firebaseapp.com",
@@ -151,55 +151,44 @@ const db = firebase.firestore();
 let points = 0;
 let ratePKR = 280;
 
-// Open/Close Panels with login gating
-function openPanel(id){
-    const user = auth.currentUser;
-    if(id === 'profile-panel'){
-        document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        updateNavActive(id);
-        updateCurrency();
-        return;
-    }
-    if(!user || !user.emailVerified){
-        alert("Please log in and verify your email first!");
-        showProfilePanel();
-        return;
-    }
-    document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    updateNavActive(id);
-    updateCurrency();
-}
-
+// Open/Close Panels
+function openPanel(id){document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');updateNavActive(id);updateCurrency();}
 function closePanel(id){document.getElementById(id).classList.remove('active');updateNavActive('');updateCurrency();}
 
 // Animated Points
 function animatePoints(oldPoints,newPoints,symbol){let duration=500;let start=null;function step(timestamp){if(!start)start=timestamp;let progress=(timestamp-start)/duration;if(progress>1)progress=1;let current=Math.floor(oldPoints+(newPoints-oldPoints)*progress);document.getElementById('points').innerText=current;let pp=document.getElementById('profile-points');if(pp)pp.innerText=current;document.getElementById('points-symbol').innerText=symbol;if(progress<1){window.requestAnimationFrame(step);}}window.requestAnimationFrame(step);}
 
-// Task Completion
+// Task Completion with Firestore Logging
 function completeTask(type) {
     const user = auth.currentUser;
     if (!user || !user.emailVerified) {
         alert('Please log in and verify your email first!');
         return;
     }
+
     let earnedPoints = Math.floor(Math.random()*50+10);
     let oldPoints = points;
     points += earnedPoints;
+
+    // Update UI
     let currency = document.getElementById('currency').value;
     let displayPoints = currency === 'USD' ? (points/100).toFixed(2) : ((points/100)*ratePKR).toFixed(0);
     let symbol = currency==='USD'?'$':'₨';
     animatePoints(oldPoints,displayPoints,symbol);
+
+    // Save task history
     db.collection('users').doc(user.uid).collection('taskHistory').add({
         taskType: type,
         pointsEarned: earnedPoints,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
     }).then(()=>console.log('Task logged successfully'))
       .catch(err=>console.error('Error logging task:',err));
+
+    // Update total points
     updatePointsInFirestore();
 }
 
+// Update total points in Firestore
 function updatePointsInFirestore() {
     const user = auth.currentUser;
     if(!user) return;
@@ -215,7 +204,7 @@ function updateNavActive(id){document.querySelectorAll('.bottom-nav a').forEach(
 // Currency Update
 function updateCurrency(){let currency=document.getElementById('currency').value;let symbol=currency==='USD'?'$':'₨';let displayAmount=currency==='USD'?(points/100).toFixed(2):((points/100)*ratePKR).toFixed(0);document.getElementById('points').innerText=displayAmount;let pp=document.getElementById('profile-points');if(pp)pp.innerText=displayAmount;document.getElementById('points-symbol').innerText=symbol;}
 
-// Show Profile Panel
+// Show Profile Panel with History
 function showProfilePanel(){
 const panel=document.getElementById('profile-panel');panel.classList.add('active');
 const user=auth.currentUser;
@@ -263,7 +252,7 @@ updateNavActive('profile-panel');
 updateCurrency();
 }
 
-// Login/Register
+// Login/Register with Firebase
 function loginUser(){
 const email=document.getElementById('login-email').value;
 const password=document.getElementById('login-pass').value;
