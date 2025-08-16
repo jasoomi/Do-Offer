@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forex Task-Earn Dashboard</title>
+<style>
+body {font-family:sans-serif; margin:0; padding:0; background:#f5f7fa; overflow-x:hidden;}
+header {background:#0066cc; color:#fff; padding:20px; text-align:center; font-size:24px;}
+main {padding:20px 0 160px 0; max-width:1200px; margin:auto;}
+section {background:#fff; padding:20px; margin:10px; border-radius:15px;}
+.bottom-nav {position:fixed; bottom:0; width:100%; background:#fff; display:flex; justify-content:space-around; padding:10px 0; box-shadow:0 -3px 10px rgba(0,0,0,0.15);}
+.bottom-nav a {text-decoration:none; color:#0066cc; text-align:center; flex:1; padding:5px 0;}
+.bottom-nav a span{display:block; font-size:20px;}
+.bottom-nav a.active{color:#00ff88;}
+.overlay {position:fixed; top:0; left:100%; width:100%; height:100%; background:#fff; z-index:2000; transition:left 0.3s ease; overflow-y:auto; padding:20px;}
+.overlay.active{left:0;}
+.close-btn {cursor:pointer; color:#0066cc; font-weight:bold; display:inline-block; margin-bottom:15px;}
+input, select {width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #ccc;}
+.button {display:inline-block; padding:10px 15px; background:#0066cc; color:#fff; border-radius:8px; cursor:pointer; text-decoration:none;}
+.button:hover {background:#00ff88;}
+.games-grid {display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.games-grid a {background:#0066cc; color:#fff; padding:15px; border-radius:10px; text-align:center; text-decoration:none;}
+.games-grid a:hover {background:#00ff88;}
+.offers-container {display:flex; overflow-x:auto; gap:10px; padding-bottom:10px; scroll-behavior:smooth;}
+.offer-card {flex:0 0 auto; width:150px; background:#fff; border-radius:10px; padding:10px; text-align:center; box-shadow:0 3px 10px rgba(0,0,0,0.1);}
+.offer-card img{width:100%; border-radius:8px;}
+@media(max-width:768px){.games-grid{grid-template-columns:1fr;}}
+</style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+</head>
+<body>
+
+<header>Forex Task-Earn Dashboard</header>
+
+<main>
+<section id="home">
+<h2>Welcome to Forex Task-Earn</h2>
+<p>
+Your Points: <span id="points-symbol">$</span><span id="points">0</span>
+</p>
+<label for="currency">Currency:</label>
+<select id="currency" onchange="updateCurrency()">
+  <option value="USD">USD ($)</option>
+  <option value="PKR">PKR (₨)</option>
+</select>
+</section>
+
+<section id="video-tasks">
+<h2>Forex Video/Trading Tasks</h2>
+<iframe src="https://torox.com/embed/video-wall?category=forex" style="width:100%; height:300px;"></iframe>
+<a class="button" onclick="completeTask('video')">Complete Task</a>
+</section>
+
+<section id="recommended-offers">
+<h2>Recommended Forex Offers</h2>
+<div class="offers-container">
+<div class="offer-card">
+<img src="https://via.placeholder.com/150" alt="Forex1">
+<h3>Forex Broker Signup</h3>
+<p>Earn 50 Points</p>
+<a class="button" href="#">Claim</a>
+</div>
+<div class="offer-card">
+<img src="https://via.placeholder.com/150" alt="Forex2">
+<h3>Trading Course</h3>
+<p>Earn 100 Points</p>
+<a class="button" href="#">Claim</a>
+</div>
+<div class="offer-card">
+<img src="https://via.placeholder.com/150" alt="Forex3">
+<h3>Deposit Bonus</h3>
+<p>Earn 150 Points</p>
+<a class="button" href="#">Claim</a>
+</div>
+</div>
+</section>
+</main>
+
+<!-- Bottom Navigation -->
+<div class="bottom-nav">
+<a href="javascript:void(0);" id="nav-profile" onclick="showProfilePanel()"><span>👤</span>Profile</a>
+<a href="javascript:void(0);" id="nav-video" onclick="openPanel('video-panel')"><span>📺</span>Tasks</a>
+<a href="javascript:void(0);" id="nav-rewards" onclick="openPanel('rewards-panel')"><span>💎</span>Rewards</a>
+<a href="javascript:void(0);" id="nav-games" onclick="openPanel('games-panel')"><span>🎮</span>MyGames</a>
+</div>
+
+<!-- Panels -->
+<div class="overlay" id="profile-panel"></div>
+
+<div class="overlay" id="withdraw-panel">
+<span class="close-btn" onclick="closePanel('withdraw-panel')">⬅ Back</span>
+<h2>Withdraw</h2>
+<input type="text" id="account-name" placeholder="Account Name">
+<input type="text" id="account-number" placeholder="Card / Account Number">
+<select id="payment-method">
+<option value="easypaisa">EasyPaisa</option>
+<option value="jazzcash">JazzCash</option>
+<option value="bank">Bank Transfer</option>
+</select>
+<input type="number" id="withdraw-amount" placeholder="Amount">
+<a class="button" onclick="submitWithdrawal()">Submit</a>
+</div>
+
+<div class="overlay" id="rewards-panel">
+<span class="close-btn" onclick="closePanel('rewards-panel')">⬅ Back</span>
+<h2>Forex Rewards & CPA Offers</h2>
+<iframe src="https://torox.com/embed/cpa-wall?category=forex" style="width:100%; height:300px;"></iframe>
+<a class="button" onclick="completeTask('rewards')">Complete Task</a>
+</div>
+
+<div class="overlay" id="video-panel">
+<span class="close-btn" onclick="closePanel('video-panel')">⬅ Back</span>
+<h2>Forex Video/Trading Tasks</h2>
+<iframe src="https://torox.com/embed/video-wall?category=forex" style="width:100%; height:300px;"></iframe>
+<a class="button" onclick="completeTask('video')">Complete Task</a>
+</div>
+
+<div class="overlay" id="games-panel">
+<span class="close-btn" onclick="closePanel('games-panel')">⬅ Back</span>
+<h2>My Games</h2>
+<div class="games-grid">
+<a href="#">Game 1</a>
+<a href="#">Game 2</a>
+<a href="#">Game 3</a>
+<a href="#">Game 4</a>
+</div>
+</div>
+
+<script>
+// New Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCAUY4Hey3H6o2lul37a13q7sxjMTQVa6I",
+  authDomain: "doffer-1e164.firebaseapp.com",
+  projectId: "doffer-1e164",
+  storageBucket: "doffer-1e164.firebasestorage.app",
+  messagingSenderId: "284020652590",
+  appId: "1:284020652590:web:b4952aad7e9b61ce467dbf",
+  measurementId: "G-DCZKMY2GLR"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Points system
+let points = 0;
+let ratePKR = 280;
+
+// Open/Close Panels
+function openPanel(id){document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');updateNavActive(id);updateCurrency();}
+function closePanel(id){document.getElementById(id).classList.remove('active');updateNavActive('');updateCurrency();}
+
+// Animated Points
+function animatePoints(oldPoints,newPoints,symbol){let duration=500;let start=null;function step(timestamp){if(!start)start=timestamp;let progress=(timestamp-start)/duration;if(progress>1)progress=1;let current=Math.floor(oldPoints+(newPoints-oldPoints)*progress);document.getElementById('points').innerText=current;let pp=document.getElementById('profile-points');if(pp)pp.innerText=current;document.getElementById('points-symbol').innerText=symbol;if(progress<1){window.requestAnimationFrame(step);}}window.requestAnimationFrame(step);}
+
+// Task Completion with Firestore Logging
+function completeTask(type) {
+    const user = auth.currentUser;
+    if (!user || !user.emailVerified) {
+        alert('Please log in and verify your email first!');
+        return;
+    }
+
+    let earnedPoints = Math.floor(Math.random()*50+10);
+    let oldPoints = points;
+    points += earnedPoints;
+
+    // Update UI
+    let currency = document.getElementById('currency').value;
+    let displayPoints = currency === 'USD' ? (points/100).toFixed(2) : ((points/100)*ratePKR).toFixed(0);
+    let symbol = currency==='USD'?'$':'₨';
+    animatePoints(oldPoints,displayPoints,symbol);
+
+    // Save task history
+    db.collection('users').doc(user.uid).collection('taskHistory').add({
+        taskType: type,
+        pointsEarned: earnedPoints,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>console.log('Task logged successfully'))
+      .catch(err=>console.error('Error logging task:',err));
+
+    // Update total points
+    updatePointsInFirestore();
+}
+
+// Update total points in Firestore
+function updatePointsInFirestore() {
+    const user = auth.currentUser;
+    if(!user) return;
+    db.collection('users').doc(user.uid).set({ totalPoints: points }, { merge:true });
+}
+
+// Withdraw
+function submitWithdrawal(){let name=document.getElementById('account-name').value;let number=document.getElementById('account-number').value;let method=document.getElementById('payment-method').value;let amount=document.getElementById('withdraw-amount').value;if(name && number && amount){alert(`Withdraw request submitted!\nMethod: ${method}\nAmount: ${amount}`);document.getElementById('account-name').value='';document.getElementById('account-number').value='';document.getElementById('withdraw-amount').value='';closePanel('withdraw-panel');}else{alert('Fill all fields!');}}
+
+// Bottom nav active
+function updateNavActive(id){document.querySelectorAll('.bottom-nav a').forEach(a=>a.classList.remove('active'));if(id=='profile-panel')document.getElementById('nav-profile').classList.add('active');if(id=='video-panel')document.getElementById('nav-video').classList.add('active');if(id=='rewards-panel')document.getElementById('nav-rewards').classList.add('active');if(id=='games-panel')document.getElementById('nav-games').classList.add('active');}
+
+// Currency Update
+function updateCurrency(){let currency=document.getElementById('currency').value;let symbol=currency==='USD'?'$':'₨';let displayAmount=currency==='USD'?(points/100).toFixed(2):((points/100)*ratePKR).toFixed(0);document.getElementById('points').innerText=displayAmount;let pp=document.getElementById('profile-points');if(pp)pp.innerText=displayAmount;document.getElementById('points-symbol').innerText=symbol;}
+
+// Show Profile Panel with History
+function showProfilePanel(){
+const panel=document.getElementById('profile-panel');panel.classList.add('active');
+const user=auth.currentUser;
+if(user && user.emailVerified){
+db.collection('users').doc(user.uid).collection('taskHistory').orderBy('timestamp','desc').get()
+.then(snapshot=>{
+  let historyHTML='<h3>Task History</h3><ul>';
+  snapshot.forEach(doc=>{
+    const data=doc.data();
+    let date=new Date(data.timestamp?.seconds*1000 || Date.now());
+    historyHTML+=`<li>${date.toLocaleString()} - ${data.taskType} - ${data.pointsEarned} points</li>`;
+  });
+  historyHTML+='</ul>';
+  panel.innerHTML=`
+  <span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
+  <h2>Profile</h2>
+  <p>Name: ${user.email}</p>
+  <p>Total Points: <span id="profile-points">${points}</span></p>
+  <a class="button" onclick="openPanel('withdraw-panel')">Withdraw</a>
+  ${historyHTML}
+  <a class="button" onclick="auth.signOut().then(()=>showProfilePanel())">Logout</a>
+  `;
+}).catch(err=>{
+  console.error(err);
+  panel.innerHTML=`
+  <span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
+  <h2>Profile</h2>
+  <p>Name: ${user.email}</p>
+  <p>Total Points: <span id="profile-points">${points}</span></p>
+  <p>Task history unavailable.</p>
+  <a class="button" onclick="openPanel('withdraw-panel')">Withdraw</a>
+  <a class="button" onclick="auth.signOut().then(()=>showProfilePanel())">Logout</a>
+  `;
+});
+}else{
+panel.innerHTML=`
+<span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
+<h2>Login / Register</h2>
+<input type="email" id="login-email" placeholder="Enter Email">
+<input type="password" id="login-pass" placeholder="Enter Password">
+<a class="button" onclick="loginUser()">Login / Register</a>
+`;
+}
+updateNavActive('profile-panel');
+updateCurrency();
+}
+
+// Login/Register with Firebase
+function loginUser(){
+const email=document.getElementById('login-email').value;
+const password=document.getElementById('login-pass').value;
+if(!email||!password){alert('Enter email and password!');return;}
+auth.signInWithEmailAndPassword(email,password)
+.then(cred=>{
+  if(cred.user.emailVerified){showProfilePanel();}else{alert('Please verify your email first!');cred.user.sendEmailVerification();}
+})
+.catch(error=>{
+  if(error.code==='auth/user-not-found'){
+    auth.createUserWithEmailAndPassword(email,password)
+    .then(cred=>{
+      cred.user.sendEmailVerification();
+      alert('Verification email sent! Please check your inbox (also spam/junk).');
+    })
+    .catch(err=>alert(err.message));
+  } else alert(error.message);
+});
+}
+
+// Auto show profile if logged in
+auth.onAuthStateChanged(user=>{
+if(user && user.emailVerified) showProfilePanel();
+});
+</script>
+
+</body>
+</html>
