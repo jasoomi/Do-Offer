@@ -133,7 +133,7 @@ Your Points: <span id="points-symbol">$</span><span id="points">0</span>
 </div>
 
 <script>
-// Firebase configuration
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCAUY4Hey3H6o2lul37a13q7sxjMTQVa6I",
   authDomain: "doffer-1e164.firebaseapp.com",
@@ -147,153 +147,152 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Points system
 let points = 0;
 let ratePKR = 280;
 
-// Open/Close Panels
-function openPanel(id){document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');updateNavActive(id);updateCurrency();}
-function closePanel(id){document.getElementById(id).classList.remove('active');updateNavActive('');updateCurrency();}
-
-// Animated Points
-function animatePoints(oldPoints,newPoints,symbol){let duration=500;let start=null;function step(timestamp){if(!start)start=timestamp;let progress=(timestamp-start)/duration;if(progress>1)progress=1;let current=Math.floor(oldPoints+(newPoints-oldPoints)*progress);document.getElementById('points').innerText=current;let pp=document.getElementById('profile-points');if(pp)pp.innerText=current;document.getElementById('points-symbol').innerText=symbol;if(progress<1){window.requestAnimationFrame(step);}}window.requestAnimationFrame(step);}
-
-// Task Completion with Firestore Logging
-function completeTask(type) {
-    const user = auth.currentUser;
-    if (!user || !user.emailVerified) { alert('Please log in and verify your email first!'); return; }
-
-    let earnedPoints = Math.floor(Math.random()*50+10);
-    let oldPoints = points;
-    points += earnedPoints;
-
-    // Update UI
-    let currency = document.getElementById('currency').value;
-    let displayPoints = currency === 'USD' ? (points/100).toFixed(2) : ((points/100)*ratePKR).toFixed(0);
-    let symbol = currency==='USD'?'$':'₨';
-    animatePoints(oldPoints,displayPoints,symbol);
-
-    // Save task history
-    db.collection('users').doc(user.uid).collection('taskHistory').add({
-        taskType: type,
-        pointsEarned: earnedPoints,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(()=>console.log('Task logged successfully'))
-      .catch(err=>console.error('Error logging task:',err));
-
-    // Update total points
-    updatePointsInFirestore();
+// Panels
+function openPanel(id){
+  document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  updateNavActive(id);
+  updateCurrency();
+}
+function closePanel(id){
+  document.getElementById(id).classList.remove('active');
+  updateNavActive('');
+  updateCurrency();
 }
 
-// Update total points in Firestore
-function updatePointsInFirestore() {
-    const user = auth.currentUser;
-    if(!user) return;
-    db.collection('users').doc(user.uid).set({ totalPoints: points }, { merge:true });
+// Nav active
+function updateNavActive(id){
+  document.querySelectorAll('.bottom-nav a').forEach(a=>a.classList.remove('active'));
+  if(id=='profile-panel') document.getElementById('nav-profile').classList.add('active');
+  if(id=='video-panel') document.getElementById('nav-video').classList.add('active');
+  if(id=='rewards-panel') document.getElementById('nav-rewards').classList.add('active');
+  if(id=='games-panel') document.getElementById('nav-games').classList.add('active');
+}
+
+// Currency
+function updateCurrency(){
+  let currency=document.getElementById('currency').value;
+  let symbol=currency==='USD'?'$':'₨';
+  let display=(currency==='USD'? (points/100).toFixed(2) : ((points/100)*ratePKR).toFixed(0));
+  document.getElementById('points').innerText=display;
+  document.getElementById('points-symbol').innerText=symbol;
+  let pp=document.getElementById('profile-points');
+  if(pp) pp.innerText = display;
+}
+
+// Task completion (points added only after approval)
+function completeTask(type){
+  const user = auth.currentUser;
+  if(!user || !user.emailVerified){ alert('Login & verify email first!'); return; }
+  let earnedPoints = Math.floor(Math.random()*50+10);
+  db.collection('users').doc(user.uid).collection('taskHistory').add({
+    taskType:type, pointsEarned:earnedPoints, status:'pending', timestamp:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>alert('Task submitted for approval. Points added after verification.'))
+    .catch(err=>console.error(err));
 }
 
 // Withdraw
-function submitWithdrawal(){let name=document.getElementById('account-name').value;let number=document.getElementById('account-number').value;let method=document.getElementById('payment-method').value;let amount=document.getElementById('withdraw-amount').value;if(name && number && amount){alert(`Withdraw request submitted!\nMethod: ${method}\nAmount: ${amount}`);document.getElementById('account-name').value='';document.getElementById('account-number').value='';document.getElementById('withdraw-amount').value='';closePanel('withdraw-panel');}else{alert('Fill all fields!');}}
+function submitWithdrawal(){
+  const user = auth.currentUser;
+  if(!user || !user.emailVerified){ alert('Login first!'); return; }
+  if(points < 1000){ alert('Need at least 1,000 points to withdraw!'); return; }
 
-// Bottom nav active
-function updateNavActive(id){document.querySelectorAll('.bottom-nav a').forEach(a=>a.classList.remove('active'));if(id=='profile-panel')document.getElementById('nav-profile').classList.add('active');if(id=='video-panel')document.getElementById('nav-video').classList.add('active');if(id=='rewards-panel')document.getElementById('nav-rewards').classList.add('active');if(id=='games-panel')document.getElementById('nav-games').classList.add('active');}
+  let name=document.getElementById('account-name').value;
+  let number=document.getElementById('account-number').value;
+  let method=document.getElementById('payment-method').value;
+  let amount=document.getElementById('withdraw-amount').value;
+  if(name && number && amount){
+    db.collection('users').doc(user.uid).collection('withdrawals').add({
+      accountName:name, accountNumber:number, method:method, amount:amount, status:'pending', timestamp:firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>{
+      alert('Withdraw request submitted! Waiting for approval.');
+      document.getElementById('account-name').value='';
+      document.getElementById('account-number').value='';
+      document.getElementById('withdraw-amount').value='';
+      closePanel('withdraw-panel');
+    }).catch(err=>console.error(err));
+  }else alert('Fill all fields!');
+}
 
-// Currency Update
-function updateCurrency(){let currency=document.getElementById('currency').value;let symbol=currency==='USD'?'$':'₨';let displayAmount=currency==='USD'?(points/100).toFixed(2):((points/100)*ratePKR).toFixed(0);document.getElementById('points').innerText=displayAmount;let pp=document.getElementById('profile-points');if(pp)pp.innerText=displayAmount;document.getElementById('points-symbol').innerText=symbol;}
-
-// Show Profile Panel with Login/Register
+// Profile panel
 function showProfilePanel(){
-const panel=document.getElementById('profile-panel');panel.classList.add('active');
-const user=auth.currentUser;
-if(user && user.emailVerified){
-  // Fetch points
-  db.collection('users').doc(user.uid).get().then(doc=>{
-    if(doc.exists) points = doc.data().totalPoints || 0;
-    updateCurrency();
-  });
-  // Fetch task history
-  db.collection('users').doc(user.uid).collection('taskHistory').orderBy('timestamp','desc').get()
-  .then(snapshot=>{
-    let historyHTML='<h3>Task History</h3><ul>';
-    snapshot.forEach(doc=>{
-      const data=doc.data();
-      let date=new Date(data.timestamp?.seconds*1000 || Date.now());
-      historyHTML+=`<li>${date.toLocaleString()} - ${data.taskType} - ${data.pointsEarned} points</li>`;
+  const panel = document.getElementById('profile-panel');
+  document.querySelectorAll('.overlay').forEach(p=>p.classList.remove('active'));
+  panel.classList.add('active');
+  updateNavActive('profile-panel');
+
+  const user = auth.currentUser;
+  if(user && user.emailVerified){
+    db.collection('users').doc(user.uid).get().then(doc=>{
+      points = doc.exists ? doc.data().totalPoints || 0 : 0;
+      updateCurrency();
     });
-    historyHTML+='</ul>';
-    panel.innerHTML=`
-    <span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
-    <h2>Profile</h2>
-    <p>Email: ${user.email}</p>
-    <p>Total Points: <span id="profile-points">${points}</span></p>
-    <a class="button" onclick="openPanel('withdraw-panel')">Withdraw</a>
-    ${historyHTML}
-    <a class="button" onclick="auth.signOut().then(()=>showProfilePanel())">Logout</a>
-    `;
-  }).catch(err=>{
-    console.error(err);
-    panel.innerHTML=`
-    <span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
-    <h2>Profile</h2>
-    <p>Email: ${user.email}</p>
-    <p>Total Points: <span id="profile-points">${points}</span></p>
-    <p>Task history unavailable.</p>
-    <a class="button" onclick="openPanel('withdraw-panel')">Withdraw</a>
-    <a class="button" onclick="auth.signOut().then(()=>showProfilePanel())">Logout</a>
-    `;
-  });
-}else{
-  // Show separate login and register forms
-  panel.innerHTML=`
-  <span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
-  <h2>Login</h2>
-  <input type="email" id="login-email" placeholder="Email">
-  <input type="password" id="login-pass" placeholder="Password">
-  <a class="button" onclick="loginUser()">Login</a>
-  <h2>Register</h2>
-  <input type="email" id="reg-email" placeholder="Email">
-  <input type="password" id="reg-pass" placeholder="Password">
-  <a class="button" onclick="registerUser()">Register</a>
-  `;
-}
-updateNavActive('profile-panel');
-updateCurrency();
-}
 
-// Login function
-function loginUser(){
-const email=document.getElementById('login-email').value;
-const password=document.getElementById('login-pass').value;
-if(!email||!password){alert('Enter email and password!');return;}
-auth.signInWithEmailAndPassword(email,password)
-.then(cred=>{
-  if(cred.user.emailVerified){
-    showProfilePanel();
+    db.collection('users').doc(user.uid).collection('taskHistory').orderBy('timestamp','desc').get()
+    .then(snapshot=>{
+      let historyHTML='<h3>Task History</h3><ul>';
+      snapshot.forEach(doc=>{
+        let data=doc.data();
+        let date=new Date(data.timestamp?.seconds*1000 || Date.now());
+        historyHTML += `<li>${date.toLocaleString()} - ${data.taskType} - ${data.pointsEarned} pts - ${data.status}</li>`;
+      });
+      historyHTML+='</ul>';
+      panel.innerHTML=`
+        <span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
+        <h2>Profile</h2>
+        <p>Email: ${user.email}</p>
+        <p>Total Points: <span id="profile-points">${points}</span></p>
+        <a class="button" onclick="openPanel('withdraw-panel')">Withdraw</a>
+        ${historyHTML}
+        <a class="button" onclick="auth.signOut().then(()=>showProfilePanel())">Logout</a>
+      `;
+    }).catch(err=>console.error(err));
   }else{
-    alert('Please verify your email first! Verification sent again.');
-    cred.user.sendEmailVerification();
+    panel.innerHTML=`
+      <span class="close-btn" onclick="closePanel('profile-panel')">⬅ Back</span>
+      <h2>Login</h2>
+      <input type="email" id="login-email" placeholder="Email">
+      <input type="password" id="login-pass" placeholder="Password">
+      <a class="button" onclick="loginUser()">Login</a>
+      <h2>Register</h2>
+      <input type="email" id="reg-email" placeholder="Email">
+      <input type="password" id="reg-pass" placeholder="Password">
+      <a class="button" onclick="registerUser()">Register</a>
+    `;
   }
-})
-.catch(err=>alert(err.message));
 }
 
-// Register function
+// Login/Register
+function loginUser(){
+  const email=document.getElementById('login-email').value;
+  const password=document.getElementById('login-pass').value;
+  if(!email||!password){ alert('Enter email & password!'); return; }
+  auth.signInWithEmailAndPassword(email,password)
+  .then(cred=>{
+    if(cred.user.emailVerified) showProfilePanel();
+    else { alert('Verify email first!'); cred.user.sendEmailVerification(); }
+  }).catch(err=>alert(err.message));
+}
+
 function registerUser(){
-const email=document.getElementById('reg-email').value;
-const password=document.getElementById('reg-pass').value;
-if(!email||!password){alert('Enter email and password!');return;}
-auth.createUserWithEmailAndPassword(email,password)
-.then(cred=>{
-  cred.user.sendEmailVerification();
-  alert('Registration successful! Please verify your email before login.');
-})
-.catch(err=>alert(err.message));
+  const email=document.getElementById('reg-email').value;
+  const password=document.getElementById('reg-pass').value;
+  if(!email||!password){ alert('Enter email & password!'); return; }
+  auth.createUserWithEmailAndPassword(email,password)
+  .then(cred=>{
+    cred.user.sendEmailVerification();
+    alert('Registered! Verify email before login.');
+  }).catch(err=>alert(err.message));
 }
 
 // Auto show profile if logged in
 auth.onAuthStateChanged(user=>{
-if(user && user.emailVerified) showProfilePanel();
+  if(user && user.emailVerified) showProfilePanel();
 });
+
 </script>
 
 </body>
